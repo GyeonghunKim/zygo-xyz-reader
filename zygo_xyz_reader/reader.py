@@ -1,6 +1,6 @@
 import numpy as np
-
-
+import matplotlib.pyplot as plt
+from .units import *
 class ZygoXYZReader:
     def __init__(self, filename: str):
         """Initialize ZygoXYZReader with filename
@@ -45,6 +45,8 @@ class ZygoXYZReader:
             self.time_stamp,
         ) = map(float, self.lines[7][:-1].split(" "))
 
+        line_8, self.objective_name, _ = self.lines[8][:-1].split('"')
+        
         (
             self.camera_width,
             self.camera_height,
@@ -52,8 +54,7 @@ class ZygoXYZReader:
             self.system_board,
             self.system_serial,
             self.instrument_id,
-            self.objective_name,
-        ) = map(float, self.lines[8][:-1].split(" "))
+        ) = map(float, line_8.split(" ")[:-1])
         
         (
             self.acquire_mode,
@@ -95,21 +96,36 @@ class ZygoXYZReader:
         for line in self.lines[14:]:
             splitted = line[:-1].split(" ")
             if len(splitted) == 3:
-                y_list.append(float(splitted[0]))
-                x_list.append(float(splitted[1]))
+                x_list.append(float(splitted[0]))
+                y_list.append(float(splitted[1]))
                 z_list.append(float(splitted[2]))
             elif len(splitted) == 4:
-                y_list.append(float(splitted[0]))
-                x_list.append(float(splitted[1]))
+                x_list.append(float(splitted[0]))
+                y_list.append(float(splitted[1]))
                 z_list.append(np.nan)
 
         x_list = np.array(x_list)
-        y_list = np.array(y_list)
+        y_list = np.array(y_list) 
         z_list = np.array(z_list)
 
         self.x_len = int(np.max(x_list) + 1)
         self.y_len = int(np.max(y_list) + 1)
 
-        self.x_grid = x_list.reshape((y_len, x_len))
-        self.y_grid = y_list.reshape((y_len, x_len))
-        self.z_grid = z_list.reshape((y_len, x_len))
+        
+        self.x_grid = x_list.reshape((self.y_len, self.x_len)).T * self.camera_res
+        self.y_grid = y_list.reshape((self.y_len, self.x_len)).T * self.camera_res
+        self.z_grid = z_list.reshape((self.y_len, self.x_len)).T * self.intf_scale_factor
+
+
+    def plot_profile(self):
+        fig = plt.figure(figsize=(6, 4))
+        ax = fig.add_subplot(111)
+        p = ax.pcolormesh(self.x_grid / um, self.y_grid / um, self.z_grid / um, cmap="jet")
+        ax.set_aspect('equal')
+        plt.colorbar(p, ax=ax)
+        ax.set_xlabel("x (um)")
+        ax.set_xlabel("y (um)")
+        ax.set_title("Height profile (um)")
+        fig.tight_layout()
+        
+        return fig, ax
